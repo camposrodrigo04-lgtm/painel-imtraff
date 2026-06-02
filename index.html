@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Controle de Propostas — IMTRAFF</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js" integrity="sha384-iU8HYtnGQ8Cy4zl7gbNMOhsDTTKX02BTXptVP/vqAWIaTfM7isw76iyZCsjL2eVi" crossorigin="anonymous"></script>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Arial, sans-serif; background: #F4F6FB; color: #1a2540; font-size: 13px; }
+
+  .header { background: #1F3864; color: white; padding: 14px 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+  .header h1 { font-size: 15px; font-weight: 700; }
+  .header-right { display: flex; align-items: center; gap: 12px; }
+  .header span { font-size: 11px; opacity: 0.7; }
+  .btn-refresh { background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3); color: white; border-radius: 5px; padding: 5px 12px; font-size: 11px; cursor: pointer; font-weight: 600; }
+  .btn-refresh:hover { background: rgba(255,255,255,0.25); }
+  .sync-status { font-size: 10px; opacity: 0.6; }
+
+  .tabs { display: flex; background: #162d52; padding: 0 20px; gap: 2px; }
+  .tab { padding: 9px 18px; font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.6); cursor: pointer; border-bottom: 3px solid transparent; transition: all 0.15s; }
+  .tab:hover { color: white; }
+  .tab.active { color: white; border-bottom-color: #5b9bd5; }
+
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* Loading / erro */
+  .loading-bar { height: 3px; background: #2F5496; width: 0; transition: width 0.4s; }
+  .loading-bar.running { width: 70%; }
+  .loading-bar.done { width: 100%; opacity: 0; transition: width 0.2s, opacity 0.5s 0.2s; }
+  .estado-msg { text-align: center; padding: 60px 20px; color: #6b7a99; }
+  .estado-msg .icon { font-size: 40px; margin-bottom: 12px; }
+  .estado-msg h2 { font-size: 14px; font-weight: 700; margin-bottom: 8px; color: #1F3864; }
+  .estado-msg p { font-size: 12px; line-height: 1.6; }
+  .estado-msg code { background: #e8ecf3; border-radius: 4px; padding: 2px 6px; font-size: 11px; }
+
+  /* Alertas */
+  #alertas { padding: 0 20px; }
+  .alerta-box { border-left: 4px solid #e65100; border-radius: 6px; padding: 10px 14px; margin-top: 12px; display: flex; align-items: flex-start; gap: 10px; background: #FFF3CD; }
+  .alerta-box.hoje { background: #FDECEA; border-left-color: #c62828; }
+  .alerta-box.pendentes { background: #F0F4FF; border-left-color: #2F5496; }
+  .alerta-box .alerta-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+  .alerta-box .alerta-titulo { font-weight: 700; font-size: 12px; margin-bottom: 6px; }
+  .alerta-box .alerta-lista { font-size: 11px; color: #444; }
+  .alerta-box .alerta-lista li { margin-top: 3px; list-style: none; }
+  .pend-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; border-bottom: 1px solid #dde4f0; }
+  .pend-row:last-child { border-bottom: none; }
+  .pend-pos { background: #2F5496; color: white; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; flex-shrink: 0; }
+  .pend-ident { font-weight: 700; font-size: 12px; flex: 1; }
+  .pend-orgao { font-size: 11px; color: #6b7a99; }
+  .pend-prazo { font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 8px; flex-shrink: 0; }
+  .pend-prazo.urgente { background: #FDECEA; color: #c62828; }
+  .pend-prazo.atencao { background: #FFF3CD; color: #7d5a00; }
+  .pend-prazo.ok-prazo { background: #EEF2F8; color: #2F5496; }
+
+  /* Cards */
+  .cards { display: flex; gap: 10px; padding: 14px 20px 8px; flex-wrap: wrap; }
+  .card { background: white; border-radius: 8px; padding: 12px 16px; flex: 1; min-width: 110px; border-top: 3px solid #2F5496; box-shadow: 0 1px 4px rgba(0,0,0,0.07); }
+  .card .label { font-size: 10px; color: #6b7a99; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+  .card .value { font-size: 20px; font-weight: 700; color: #1F3864; }
+  .card.verde   { border-top-color: #2e7d32; } .card.verde .value   { color: #2e7d32; }
+  .card.vermelho{ border-top-color: #c62828; } .card.vermelho .value{ color: #c62828; }
+  .card.amarelo { border-top-color: #f57f17; } .card.amarelo .value { color: #f57f17; }
+  .card.laranja { border-top-color: #e65100; } .card.laranja .value { color: #e65100; }
+  .card.roxo    { border-top-color: #6a1b9a; } .card.roxo .value    { color: #6a1b9a; }
+
+  /* Filterbar */
+  .filterbar { padding: 8px 20px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; background: white; border-bottom: 1px solid #e0e6f0; }
+  .filterbar input, .filterbar select { border: 1px solid #c5cfe0; border-radius: 5px; padding: 5px 10px; font-size: 12px; color: #1a2540; background: #f8f9fc; }
+  .filterbar input { width: 170px; }
+  .filterbar label { font-size: 11px; color: #6b7a99; }
+
+  /* Table */
+  .table-wrap { padding: 14px 20px; overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.07); min-width: 1100px; }
+  thead tr { background: #2F5496; color: white; }
+  thead th { padding: 9px 8px; font-size: 11px; font-weight: 700; text-align: center; white-space: nowrap; }
+  tbody tr:nth-child(even) { background: #EEF2F8; }
+  tbody tr:hover { background: #dce6f5; }
+  td { padding: 7px 8px; vertical-align: middle; font-size: 12px; }
+  td.c { text-align: center; }
+  td.r { text-align: right; }
+
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+  .b-sim  { background: #C6EFCE; color: #1a6b2e; }
+  .b-nao  { background: #FFC7CE; color: #8b0000; }
+  .b-and  { background: #FFEB9C; color: #7d5a00; }
+  .b-pend { background: #e8ecf3; color: #444; }
+  .b-env  { background: #DDEBF7; color: #1a3a6b; }
+  .sp-elab{ background: #FFF9C4; color: #7d5a00; }
+  .sp-env { background: #DDEBF7; color: #1a3a6b; }
+  .sp-apr { background: #C6EFCE; color: #1a6b2e; }
+  .sp-dec { background: #FFC7CE; color: #8b0000; }
+  .sp-nc  { background: #E8D5F5; color: #4a1272; }
+
+  .urgente  { color: #c62828; font-weight: 700; }
+  .atencao  { color: #e65100; font-weight: 700; }
+  .ok-prazo { color: #2e7d32; }
+
+  .fu-hoje   { background: #FDECEA; color: #c62828; font-weight: 700; border-radius: 5px; padding: 2px 6px; display:inline-block; }
+  .fu-amanha { background: #FFF3CD; color: #7d5a00; font-weight: 700; border-radius: 5px; padding: 2px 6px; display:inline-block; }
+  .fu-breve  { background: #EEF2F8; color: #2F5496; border-radius: 5px; padding: 2px 6px; display:inline-block; }
+  .fu-venc   { background: #FFC7CE; color: #8b0000; font-weight: 700; border-radius: 5px; padding: 2px 6px; display:inline-block; }
+  .dias-badge{ font-size: 10px; background: #e8ecf3; border-radius: 8px; padding: 1px 5px; margin-left: 4px; }
+
+  /* Gráfico */
+  .chart-section { padding: 20px; }
+  .chart-box { background: white; border-radius: 10px; box-shadow: 0 1px 4px rgba(0,0,0,0.07); padding: 20px; }
+  .chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px; }
+  .chart-header h3 { font-size: 13px; color: #1F3864; font-weight: 700; }
+  .chart-controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .chart-controls label { font-size: 11px; color: #6b7a99; }
+  .chart-controls select { border: 1px solid #c5cfe0; border-radius: 5px; padding: 4px 8px; font-size: 12px; background: #f8f9fc; }
+  .status-pills { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+  .pill { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; cursor: pointer; border: 2px solid transparent; opacity: 0.5; transition: all 0.15s; user-select: none; }
+  .pill.on { opacity: 1; border-color: currentColor; }
+  .pill-elab{ background:#FFF9C4; color:#7d5a00; } .pill-env{ background:#DDEBF7; color:#1a3a6b; }
+  .pill-apr { background:#C6EFCE; color:#1a6b2e; } .pill-dec{ background:#FFC7CE; color:#8b0000; }
+  .pill-nc  { background:#E8D5F5; color:#4a1272; }
+  .chart-total { font-size: 11px; color: #6b7a99; margin-top: 10px; text-align: right; }
+
+  /* Órgãos */
+  .orgaos-wrap { padding: 20px; }
+  .orgaos-wrap h2 { font-size: 14px; color: #1F3864; margin-bottom: 14px; }
+  .orgaos-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; }
+  .orgao-card { background: white; border-radius: 8px; padding: 14px 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.07); border-left: 4px solid #2F5496; }
+  .orgao-card .codigo { font-size: 11px; color: #6b7a99; }
+  .orgao-card .nome { font-weight: 700; font-size: 13px; margin-top: 1px; margin-bottom: 6px; }
+  .orgao-card .cnt { font-size: 10px; background: #EEF2F8; border-radius: 8px; padding: 2px 7px; color: #2F5496; font-weight: 600; display: inline-block; margin-bottom: 8px; }
+  .orgao-props-list { border-top: 1px solid #e8ecf3; padding-top: 8px; display: flex; flex-direction: column; gap: 5px; }
+  .orgao-prop-item { display: flex; align-items: center; gap: 8px; font-size: 11px; }
+  .orgao-prop-ident { flex: 1; font-weight: 600; color: #1a2540; }
+  .orgao-prop-prazo { color: #6b7a99; white-space: nowrap; }
+
+  .empty-msg { text-align: center; padding: 40px; color: #6b7a99; font-size: 13px; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════ CONFIGURAÇÃO — edite apenas esta linha ═══════════ -->
+<script>
+  const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRjQOdpVMrLPj-b1LLIMcSFdsbWb8V8DU0c5tVlR4o5PGfYksL_ybSIuAd1zLqrTbblJUnYAyEWemX_/pub?gid=0&single=true&output=csv';
+</script>
+<!-- ══════════════════════════════════════════════════════════════ -->
+
+<div id="loading-bar" class="loading-bar"></div>
+
+<div class="header">
+  <h1>📋 IMTRAFF — Controle de Propostas e Licitações</h1>
+  <div class="header-right">
+    <span class="sync-status" id="sync-status"></span>
+    <button class="btn-refresh" onclick="carregarDados()">↻ Atualizar</button>
+    <span id="data-atual" style="font-size:11px;opacity:0.7"></span>
+  </div>
+</div>
+
+<div class="tabs">
+  <div class="tab active"  onclick="showTab('propostas',this)">📋 Propostas</div>
+  <div class="tab"         onclick="showTab('grafico',this)">📊 Gráfico de Valores</div>
+  <div class="tab"         onclick="showTab('orgaos',this)">🏢 Órgãos / Licitantes</div>
+</div>
+
+<!-- PAGE PROPOSTAS -->
+<div class="page active" id="page-propostas">
+  <div id="alertas"></div>
+  <div class="cards">
+    <div class="card"><div class="label">Total</div><div class="value" id="cnt-total">—</div></div>
+    <div class="card amarelo"><div class="label">Em elaboração</div><div class="value" id="cnt-elab">—</div></div>
+    <div class="card"><div class="label">Enviadas</div><div class="value" id="cnt-env">—</div></div>
+    <div class="card verde"><div class="label">Aprovadas</div><div class="value" id="cnt-apr">—</div></div>
+    <div class="card vermelho"><div class="label">Prazo ≤5 dias</div><div class="value" id="cnt-urg">—</div></div>
+    <div class="card laranja"><div class="label">Follow-up hoje/amanhã</div><div class="value" id="cnt-fu">—</div></div>
+    <div class="card roxo"><div class="label">Volume total (R$)</div><div class="value" id="cnt-vol" style="font-size:14px">—</div></div>
+  </div>
+  <div class="filterbar">
+    <label>Buscar:</label>
+    <input type="text" id="busca" placeholder="Nome, órgão, objeto...">
+    <label>Status:</label>
+    <select id="filtro-sp">
+      <option value="">Todos</option>
+      <option>Em elaboração</option><option>Enviada</option><option>Aprovada</option>
+      <option>Declinada</option><option>Não contemplada</option>
+    </select>
+    <label>Follow-up:</label>
+    <select id="filtro-fu">
+      <option value="">Todos</option>
+      <option value="hoje">Hoje</option><option value="amanha">Amanhã</option>
+      <option value="semana">7 dias</option><option value="vencido">Vencido</option>
+    </select>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Nº</th><th>Identificação</th><th>Rev.</th><th>Órgão / Licitante</th>
+          <th>Objeto</th><th>Valor (R$)</th><th>Prazo Entrega</th><th>Data Envio</th>
+          <th>Docs</th><th>Prop. Técnica</th><th>Orçamento</th>
+          <th>Status</th><th>Follow-up</th><th>Observações</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+    <div class="empty-msg" id="empty-msg" style="display:none">Nenhuma proposta encontrada.</div>
+    <div id="estado-inicial"></div>
+  </div>
+</div>
+
+<!-- PAGE GRÁFICO -->
+<div class="page" id="page-grafico">
+  <div class="chart-section">
+    <div class="chart-box">
+      <div class="chart-header">
+        <h3>📊 Valor das Propostas por Mês</h3>
+        <div class="chart-controls">
+          <label>Ano:</label>
+          <select id="chart-ano" onchange="renderChart()"></select>
+          <label>Agrupar por:</label>
+          <select id="chart-group" onchange="renderChart()">
+            <option value="prazo">Mês de entrega</option>
+            <option value="envio">Mês de envio</option>
+          </select>
+        </div>
+      </div>
+      <div class="status-pills" id="pills"></div>
+      <div style="position:relative;height:340px"><canvas id="barChart"></canvas></div>
+      <div class="chart-total" id="chart-total-label"></div>
+    </div>
+  </div>
+</div>
+
+<!-- PAGE ÓRGÃOS -->
+<div class="page" id="page-orgaos">
+  <div class="orgaos-wrap">
+    <h2>🏢 Órgãos e Licitantes</h2>
+    <div class="orgaos-grid" id="orgaos-grid"></div>
+  </div>
+</div>
+
+<script>
+// ─── Constantes ───────────────────────────────────────────────────────────────
+const SP_CONFIG = {
+  "Em elaboração":   { cls:"sp-elab", pill:"pill-elab", cor:"rgba(245,220,50,0.8)"  },
+  "Enviada":         { cls:"sp-env",  pill:"pill-env",  cor:"rgba(91,155,213,0.8)"  },
+  "Aprovada":        { cls:"sp-apr",  pill:"pill-apr",  cor:"rgba(70,180,90,0.8)"   },
+  "Declinada":       { cls:"sp-dec",  pill:"pill-dec",  cor:"rgba(220,80,80,0.8)"   },
+  "Não contemplada": { cls:"sp-nc",   pill:"pill-nc",   cor:"rgba(150,80,200,0.8)"  },
+};
+const MESES = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+let activePills = new Set(Object.keys(SP_CONFIG));
+let propostas = [];
+let barChartInstance = null;
+
+// ─── Data ─────────────────────────────────────────────────────────────────────
+const hoje = new Date(); hoje.setHours(0,0,0,0);
+const hojeStr   = hoje.toISOString().slice(0,10);
+const amanha    = new Date(hoje); amanha.setDate(amanha.getDate()+1);
+const amanhaStr = amanha.toISOString().slice(0,10);
+
+document.getElementById("data-atual").textContent =
+  hoje.toLocaleDateString("pt-BR",{weekday:"long",day:"2-digit",month:"long",year:"numeric"});
+
+// ─── CSV fetch e parse ────────────────────────────────────────────────────────
+function parseCSV(text) {
+  const lines = text.trim().split(/\r?\n/);
+  if (lines.length < 2) return [];
+  // Localiza a linha de cabeçalho (procura por "Identificação" nas primeiras 5 linhas)
+  let headerIdx = 0;
+  for (let i = 0; i < Math.min(5, lines.length); i++) {
+    if (lines[i].includes("Identifica")) { headerIdx = i; break; }
+  }
+  const headers = splitCSVLine(lines[headerIdx]).map(h => h.trim());
+  return lines.slice(headerIdx + 1).filter(l => l.trim()).map((line, i) => {
+    const vals = splitCSVLine(line);
+    const row = {};
+    headers.forEach((h, j) => row[h] = (vals[j] || "").trim());
+    return {
+      id: i + 1,
+      ident:    row["Identificação"]    || "",
+      orgao:    row["Órgão"]            || "",
+      rev:      row["Revisão"]          || "",
+      objeto:   row["Objeto"]           || "",
+      valor:    parseFloat((row["Valor"] || "0").replace(/\./g,"").replace(",",".")) || 0,
+      prazo:    parseDateBR(row["Prazo de Entrega"]),
+      envio:    parseDateBR(row["Data de Envio"] || row["Data de Envio"]),
+      docs:     row["Documentos"]       || "Não",
+      tecnica:  row["Proposta Técnica"] || "Não",
+      orcamento:row["Orçamento"]        || "Não",
+      sp:       row["Status"]           || "Em elaboração",
+      followup: parseDateBR(row["Follow-up"]),
+      obs:      row["Observações"]      || "",
+    };
+  }).filter(p => p.ident);
+}
+
+function splitCSVLine(line) {
+  const result = []; let cur = ""; let inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (c === '"') { inQ = !inQ; }
+    else if ((c === ',' || c === ';') && !inQ) { result.push(cur); cur = ""; }
+    else { cur += c; }
+  }
+  result.push(cur);
+  return result;
+}
+
+function parseDateBR(s) {
+  if (!s) return "";
+  s = s.trim();
+  // DD/MM/AAAA → AAAA-MM-DD
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) {
+    const [d, m, y] = s.split("/"); return `${y}-${m}-${d}`;
+  }
+  // já em AAAA-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  return "";
+}
+
+async function carregarDados() {
+  const bar = document.getElementById("loading-bar");
+  const sync = document.getElementById("sync-status");
+  bar.className = "loading-bar running";
+  sync.textContent = "Atualizando...";
+
+  if (!SHEET_CSV_URL || SHEET_CSV_URL === 'COLE_AQUI_O_LINK_DO_CSV') {
+    bar.className = "loading-bar done";
+    mostrarEstadoInicial();
+    sync.textContent = "";
+    return;
+  }
+
+  try {
+    // Tenta direto primeiro; se falhar por CORS usa proxy
+    const urlDirect = SHEET_CSV_URL + (SHEET_CSV_URL.includes("?") ? "&" : "?") + "t=" + Date.now();
+    const proxyURL  = "https://corsproxy.io/?" + encodeURIComponent(urlDirect);
+    let text = "";
+    try {
+      const r = await fetch(urlDirect);
+      if (!r.ok) throw new Error("direto falhou");
+      text = await r.text();
+      if (text.trim().startsWith("<!")) throw new Error("recebeu HTML, não CSV");
+    } catch(_) {
+      const r2 = await fetch(proxyURL);
+      if (!r2.ok) throw new Error("HTTP " + r2.status);
+      text = await r2.text();
+    }
+    propostas = parseCSV(text);
+    bar.className = "loading-bar done";
+    const hora = new Date().toLocaleTimeString("pt-BR", {hour:"2-digit",minute:"2-digit"});
+    sync.textContent = `Atualizado às ${hora} · ${propostas.length} propostas`;
+    document.getElementById("estado-inicial").innerHTML = "";
+    render();
+    renderOrgaos();
+  } catch(e) {
+    bar.className = "loading-bar done";
+    sync.textContent = "Erro ao carregar dados";
+    mostrarEstadoInicial(true);
+  }
+}
+
+function mostrarEstadoInicial(erro) {
+  const el = document.getElementById("estado-inicial");
+  if (erro) {
+    el.innerHTML = `<div class="estado-msg"><div class="icon">⚠️</div>
+      <h2>Erro ao buscar dados da planilha</h2>
+      <p>Verifique se o link CSV está correto e se a planilha está publicada publicamente.<br>
+      Confirme que em <strong>Arquivo → Publicar na web</strong> a opção "Quem tem o link" está ativa.</p></div>`;
+  } else {
+    el.innerHTML = `<div class="estado-msg"><div class="icon">🔗</div>
+      <h2>Painel não conectado</h2>
+      <p>Para exibir dados reais, abra o arquivo <code>index.html</code> em um editor de texto,<br>
+      localize a linha <code>const SHEET_CSV_URL = 'COLE_AQUI_O_LINK_DO_CSV'</code><br>
+      e substitua pelo link CSV da sua planilha publicada no Google Sheets.</p></div>`;
+  }
+  document.getElementById("tbody").innerHTML = "";
+  document.getElementById("empty-msg").style.display = "none";
+}
+
+// ─── Utils ────────────────────────────────────────────────────────────────────
+function diasRestantes(d) {
+  if (!d) return null;
+  const dt = new Date(d + "T00:00:00"); dt.setHours(0,0,0,0);
+  return Math.ceil((dt - hoje) / 86400000);
+}
+function fmtData(d) {
+  if (!d) return "—";
+  const [y,m,dia] = d.split("-"); return `${dia}/${m}/${y}`;
+}
+function fmtValor(v) {
+  if (!v && v !== 0) return "—";
+  return "R$ " + v.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2});
+}
+function badgeCheck(v) {
+  if (v==="Sim")          return `<span class="badge b-sim">✔ Sim</span>`;
+  if (v==="Não")          return `<span class="badge b-nao">✘ Não</span>`;
+  if (v==="Em andamento") return `<span class="badge b-and">⟳ And.</span>`;
+  return `<span class="badge b-pend">—</span>`;
+}
+function badgeSP(v) {
+  const c = SP_CONFIG[v] || {cls:"b-pend"};
+  return `<span class="badge ${c.cls}">${v||"—"}</span>`;
+}
+function renderFollowup(fu) {
+  if (!fu) return `<span style="color:#aaa;font-size:11px">—</span>`;
+  const d = diasRestantes(fu);
+  if (d < 0)   return `<span class="fu-venc">⚠ ${fmtData(fu)}<br><small>Venc.(${Math.abs(d)}d)</small></span>`;
+  if (d === 0) return `<span class="fu-hoje">🔔 HOJE</span>`;
+  if (d === 1) return `<span class="fu-amanha">🔔 Amanhã</span>`;
+  if (d <= 7)  return `<span class="fu-breve">${fmtData(fu)}<br><small>${d}d</small></span>`;
+  return `<span style="font-size:11px;color:#444">${fmtData(fu)}</span>`;
+}
+
+// ─── Alertas ──────────────────────────────────────────────────────────────────
+function renderAlertas() {
+  const ativas = p => !["Aprovada","Declinada","Não contemplada"].includes(p.sp);
+  const venc = propostas.filter(p => p.followup && diasRestantes(p.followup) < 0 && ativas(p));
+  const hj   = propostas.filter(p => p.followup === hojeStr && ativas(p));
+  const am   = propostas.filter(p => p.followup === amanhaStr && ativas(p));
+  const pendentes = propostas
+    .filter(p => p.sp === "Em elaboração" && p.prazo)
+    .sort((a,b) => a.prazo.localeCompare(b.prazo));
+
+  let html = "";
+  if (pendentes.length) {
+    const rows = pendentes.map((p, i) => {
+      const d = diasRestantes(p.prazo);
+      const cls = d === null ? "" : d <= 5 ? "urgente" : d <= 15 ? "atencao" : "ok-prazo";
+      const lblDias = d === null ? "sem prazo" : d < 0 ? `VENCIDO há ${Math.abs(d)}d` : d === 0 ? "HOJE" : d === 1 ? "amanhã" : `${d} dias`;
+      return `<li><div class="pend-row">
+        <div class="pend-pos">${i+1}</div>
+        <div style="flex:1;min-width:0">
+          <div class="pend-ident">${p.orgao}</div>
+          <div class="pend-orgao">${p.ident}${p.objeto ? ` · ${p.objeto}` : ""}</div>
+        </div>
+        <span class="badge sp-elab" style="font-size:10px">Em elaboração</span>
+        <span class="pend-prazo ${cls}">${fmtData(p.prazo)} · ${lblDias}</span>
+      </div></li>`;
+    }).join("");
+    html += `<div class="alerta-box pendentes"><div class="alerta-icon">📋</div><div style="flex:1">
+      <div class="alerta-titulo">Propostas em elaboração — por ordem de prazo (${pendentes.length})</div>
+      <ul class="alerta-lista">${rows}</ul>
+    </div></div>`;
+  }
+  if (venc.length) html += `<div class="alerta-box hoje"><div class="alerta-icon">⚠️</div><div>
+    <div class="alerta-titulo">Follow-up VENCIDO (${venc.length})</div>
+    <ul class="alerta-lista">${venc.map(p=>`<li>${p.orgao} — ${p.ident} (era ${fmtData(p.followup)})</li>`).join("")}</ul>
+  </div></div>`;
+  if (hj.length) html += `<div class="alerta-box hoje"><div class="alerta-icon">🔔</div><div>
+    <div class="alerta-titulo">Follow-up HOJE (${hj.length})</div>
+    <ul class="alerta-lista">${hj.map(p=>`<li>${p.orgao} — ${p.ident}</li>`).join("")}</ul>
+  </div></div>`;
+  if (am.length) html += `<div class="alerta-box"><div class="alerta-icon">📅</div><div>
+    <div class="alerta-titulo">Follow-up amanhã (${am.length})</div>
+    <ul class="alerta-lista">${am.map(p=>`<li>${p.orgao} — ${p.ident}</li>`).join("")}</ul>
+  </div></div>`;
+  document.getElementById("alertas").innerHTML = html;
+}
+
+// ─── Filtros ──────────────────────────────────────────────────────────────────
+function filtrar() {
+  const q  = document.getElementById("busca").value.toLowerCase();
+  const sp = document.getElementById("filtro-sp").value;
+  const fu = document.getElementById("filtro-fu").value;
+  return propostas.filter(p => {
+    const txt = [p.ident,p.orgao,p.objeto,p.obs].join(" ").toLowerCase();
+    if (q && !txt.includes(q)) return false;
+    if (sp && p.sp !== sp) return false;
+    if (fu) {
+      const d = diasRestantes(p.followup);
+      if (fu==="hoje"   && p.followup !== hojeStr) return false;
+      if (fu==="amanha" && p.followup !== amanhaStr) return false;
+      if (fu==="semana" && (d===null||d<0||d>7)) return false;
+      if (fu==="vencido" && (d===null||d>=0)) return false;
+    }
+    return true;
+  });
+}
+
+// ─── Render tabela ────────────────────────────────────────────────────────────
+function render() {
+  renderAlertas();
+  const lista = filtrar();
+
+  document.getElementById("cnt-total").textContent = propostas.length;
+  document.getElementById("cnt-elab").textContent  = propostas.filter(p=>p.sp==="Em elaboração").length;
+  document.getElementById("cnt-env").textContent   = propostas.filter(p=>p.sp==="Enviada").length;
+  document.getElementById("cnt-apr").textContent   = propostas.filter(p=>p.sp==="Aprovada").length;
+  const urg = propostas.filter(p=>{const d=diasRestantes(p.prazo);return d!==null&&d<=5&&!["Aprovada","Declinada","Não contemplada"].includes(p.sp);}).length;
+  document.getElementById("cnt-urg").textContent = urg;
+  const fuHj = propostas.filter(p=>p.followup&&diasRestantes(p.followup)<=1&&diasRestantes(p.followup)>=0&&!["Aprovada","Declinada","Não contemplada"].includes(p.sp)).length;
+  document.getElementById("cnt-fu").textContent = fuHj;
+  const vol = propostas.reduce((s,p)=>s+(p.valor||0),0);
+  document.getElementById("cnt-vol").textContent = vol > 0 ? "R$ " + vol.toLocaleString("pt-BR",{minimumFractionDigits:0}) : "—";
+
+  document.getElementById("empty-msg").style.display = lista.length ? "none" : "";
+  document.getElementById("tbody").innerHTML = lista.map((p, i) => {
+    const dp = diasRestantes(p.prazo);
+    const enviouNoPrazo = p.envio && p.prazo && p.envio <= p.prazo;
+    const cls = dp===null||enviouNoPrazo ? "" : dp<=5 ? "urgente" : dp<=15 ? "atencao" : "ok-prazo";
+    const dlbl = dp!==null&&!enviouNoPrazo ? `<span class="dias-badge">${dp>=0?dp+"d":"VENC."}</span>` : "";
+    return `<tr>
+      <td class="c" style="font-weight:600;color:#6b7a99">${i+1}</td>
+      <td><strong>${p.ident}</strong></td>
+      <td class="c" style="font-size:11px;color:#6b7a99">${p.rev||"—"}</td>
+      <td><span class="badge b-env" style="font-size:12px">${p.orgao||"—"}</span></td>
+      <td style="font-size:11px;color:#444">${p.objeto||"—"}</td>
+      <td class="r" style="font-weight:600;color:#1F3864">${fmtValor(p.valor)}</td>
+      <td class="c ${cls}">${fmtData(p.prazo)}${dlbl}</td>
+      <td class="c" style="font-size:11px">${fmtData(p.envio)}</td>
+      <td class="c">${badgeCheck(p.docs)}</td>
+      <td class="c">${badgeCheck(p.tecnica)}</td>
+      <td class="c">${badgeCheck(p.orcamento)}</td>
+      <td class="c">${badgeSP(p.sp)}</td>
+      <td class="c">${renderFollowup(p.followup)}</td>
+      <td style="color:#6b7a99;font-size:11px">${p.obs||"—"}</td>
+    </tr>`;
+  }).join("");
+}
+
+// ─── Gráfico ─────────────────────────────────────────────────────────────────
+function initChart() {
+  const anos = [...new Set(propostas.map(p=>(p.prazo||"").slice(0,4)).filter(Boolean))].sort();
+  const anoAtual = String(hoje.getFullYear());
+  const sel = document.getElementById("chart-ano");
+  sel.innerHTML = (anos.length ? anos : [anoAtual])
+    .map(a=>`<option value="${a}" ${a===anoAtual?"selected":""}>${a}</option>`).join("");
+  const pillsEl = document.getElementById("pills");
+  if (!pillsEl.children.length) {
+    pillsEl.innerHTML = Object.entries(SP_CONFIG).map(([s,{pill}])=>
+      `<span class="pill ${pill} on" data-status="${s}" onclick="togglePill(this)">${s}</span>`
+    ).join("");
+  }
+}
+function togglePill(el) {
+  const s = el.dataset.status;
+  activePills.has(s) ? (activePills.delete(s), el.classList.remove("on")) : (activePills.add(s), el.classList.add("on"));
+  renderChart();
+}
+function renderChart() {
+  const ano   = document.getElementById("chart-ano")?.value || String(hoje.getFullYear());
+  const grupo = document.getElementById("chart-group")?.value || "prazo";
+  const totais = {}; Object.keys(SP_CONFIG).forEach(s=>{ totais[s]=Array(12).fill(0); });
+  propostas.forEach(p => {
+    const ds = grupo === "envio" ? p.envio : p.prazo;
+    if (!ds || !ds.startsWith(ano)) return;
+    const mes = parseInt(ds.slice(5,7)) - 1;
+    if (mes < 0 || mes > 11) return;
+    if (totais[p.sp]) totais[p.sp][mes] += (p.valor || 0);
+  });
+  const datasets = Object.entries(SP_CONFIG).filter(([s])=>activePills.has(s)).map(([s,{cor}])=>({
+    label:s, data:totais[s], backgroundColor:cor, borderRadius:5, borderSkipped:false,
+  }));
+  const ctx = document.getElementById("barChart").getContext("2d");
+  if (barChartInstance) barChartInstance.destroy();
+  barChartInstance = new Chart(ctx, {
+    type:"bar", data:{labels:MESES, datasets},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{position:"top",labels:{font:{size:11},padding:12,boxWidth:14}},
+        tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: R$ ${ctx.parsed.y.toLocaleString("pt-BR",{minimumFractionDigits:2})}`}}
+      },
+      scales:{
+        x:{stacked:true,grid:{display:false},ticks:{font:{size:11}}},
+        y:{stacked:true,ticks:{font:{size:11},callback:v=>"R$ "+v.toLocaleString("pt-BR",{minimumFractionDigits:0})},grid:{color:"#e8ecf3"}}
+      }
+    }
+  });
+  const total = datasets.reduce((s,d)=>s+d.data.reduce((a,b)=>a+b,0),0);
+  document.getElementById("chart-total-label").textContent = total > 0
+    ? `Total filtrado: R$ ${total.toLocaleString("pt-BR",{minimumFractionDigits:2})}`
+    : "Sem dados para o filtro selecionado.";
+}
+
+// ─── Órgãos ───────────────────────────────────────────────────────────────────
+function renderOrgaos() {
+  const grid = document.getElementById("orgaos-grid");
+  const orgaosUnicos = [...new Set(propostas.map(p=>p.orgao).filter(Boolean))].sort();
+  if (!orgaosUnicos.length) { grid.innerHTML = `<div class="empty-msg">Nenhum dado carregado.</div>`; return; }
+  grid.innerHTML = orgaosUnicos.map(orgao => {
+    const props = propostas.filter(p => p.orgao === orgao).sort((a,b) => a.prazo.localeCompare(b.prazo));
+    const propItems = props.map(p => {
+      const d = diasRestantes(p.prazo);
+      const cls = d===null?"":d<=5?"urgente":d<=15?"atencao":"ok-prazo";
+      const spCls = SP_CONFIG[p.sp]?.cls || "b-pend";
+      return `<div class="orgao-prop-item">
+        <span class="orgao-prop-ident">${p.ident}${p.rev?` <span style="color:#aaa;font-weight:400">(${p.rev})</span>`:""}</span>
+        <span class="badge ${spCls}" style="font-size:10px">${p.sp}</span>
+        <span class="orgao-prop-prazo ${cls}">${fmtData(p.prazo)}</span>
+      </div>`;
+    }).join("");
+    const [codigo, ...nomePartes] = orgao.split(" - ");
+    return `<div class="orgao-card">
+      <div class="codigo">${codigo}</div>
+      <div class="nome">${nomePartes.join(" - ") || orgao}</div>
+      <span class="cnt">${props.length} proposta${props.length!==1?"s":""}</span>
+      ${props.length > 0 ? `<div class="orgao-props-list">${propItems}</div>` : ""}
+    </div>`;
+  }).join("");
+}
+
+// ─── Tabs ─────────────────────────────────────────────────────────────────────
+function showTab(name, el) {
+  document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
+  document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
+  document.getElementById("page-"+name).classList.add("active");
+  el.classList.add("active");
+  if (name === "grafico") { initChart(); renderChart(); }
+  if (name === "orgaos")  renderOrgaos();
+}
+
+// ─── Eventos ──────────────────────────────────────────────────────────────────
+document.getElementById("busca").addEventListener("input", render);
+document.getElementById("filtro-sp").addEventListener("change", render);
+document.getElementById("filtro-fu").addEventListener("change", render);
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+carregarDados();
+</script>
+</body>
+</html>
