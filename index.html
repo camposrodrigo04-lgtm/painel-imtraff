@@ -230,7 +230,7 @@ body {
 .card .label {
   font-size: 10px; font-weight: 500;
   text-transform: uppercase; letter-spacing: 0.8px;
-  color: var(--text-dim); margin-bottom: 10px;
+  color: #c8d8ee; margin-bottom: 10px;
 }
 .card .value {
   font-family: 'Syne', sans-serif;
@@ -283,9 +283,9 @@ body {
 table { width: 100%; border-collapse: collapse; min-width: 1250px; }
 thead tr { background: var(--surface2); }
 thead th {
-  padding: 10px 9px; font-size: 10px; font-weight: 600;
+  padding: 10px 9px; font-size: 10px; font-weight: 700;
   text-transform: uppercase; letter-spacing: 0.6px;
-  color: var(--text-muted); text-align: center; white-space: nowrap;
+  color: #ffffff; text-align: center; white-space: nowrap;
   cursor: pointer; border-bottom: 1px solid var(--border);
   transition: color 0.15s; user-select: none;
 }
@@ -506,8 +506,8 @@ td.r { text-align: right; }
       <thead><tr id="thead-row">
         <th data-col="idx"       onclick="sortBy('idx')">Nº<span class="sort-icon"></span></th>
         <th data-col="ident"     onclick="sortBy('ident')">Cliente<span class="sort-icon"></span></th>
-        <th data-col="rev"       onclick="sortBy('rev')">Número da Proposta<span class="sort-icon"></span></th>
-        <th data-col="orgao"     onclick="sortBy('orgao')">REV.<span class="sort-icon"></span></th>
+        <th data-col="rev"       onclick="sortBy('rev')">REV.<span class="sort-icon"></span></th>
+        <th data-col="orgao"     onclick="sortBy('orgao')">Número da Proposta<span class="sort-icon"></span></th>
         <th data-col="segmento"  onclick="sortBy('segmento')">Segmento<span class="sort-icon"></span></th>
         <th data-col="objeto"    onclick="sortBy('objeto')">Objeto<span class="sort-icon"></span></th>
         <th data-col="valor"     onclick="sortBy('valor')">Valor (R$)<span class="sort-icon"></span></th>
@@ -893,10 +893,10 @@ function render(){
     return`<tr class="${invalido?"checklist-invalido":""}">
       <td class="c" style="font-weight:600;color:#4a5a74">${i+1}</td>
       <td><strong>${p.ident}</strong></td>
-      <td class="c" style="font-size:11px;font-weight:600;color:#7a8ba8">${p.rev||"—"}</td>
+      <td class="c" style="font-size:11px;font-weight:600;color:#e2e8f4">${p.rev||"—"}</td>
       <td><span class="badge b-env">${p.orgao||"—"}</span></td>
       <td class="c">${p.segmento?`<span class="seg-badge" style="background:${segColor}1a;color:${segColor};border-color:${segColor}33">${p.segmento}</span>`:"—"}</td>
-      <td style="font-size:11px;color:#7a8ba8">${p.objeto||"—"}</td>
+      <td style="font-size:11px;color:#dce6f5">${p.objeto||"—"}</td>
       <td class="r" style="font-weight:600;color:#e2e8f4">${fmtValor(p.valor)}</td>
       <td class="c ${cls}">${fmtData(p.prazo)}${dlbl}</td>
       <td class="c" style="font-size:11px;color:#7a8ba8">${fmtData(p.envio)}</td>
